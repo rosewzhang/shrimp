@@ -1,0 +1,95 @@
+#include "Bot.hpp"
+
+#include <cstdint>
+#include <thread>
+#include <string>
+
+namespace
+{
+    bool starts_with(const char* str, const char* substr)
+    {
+        if (*substr == '\0')
+        {
+            return true;
+        }
+        if (*str != *substr || *str == '\0')
+        {
+            return false;
+        }
+        return starts_with(str + 1, substr + 1);
+    }
+}
+
+Bot::Bot(std::string token, std::uint32_t intents)
+    : dpp_bot{token, intents}, last_tick{std::time(NULL)}
+{
+    // the mutex starts off locked and is only unlocked when on_ready finishes executing so that
+    // no early ticks happen
+    mutex.lock();
+    dpp_bot.on_log(dpp::utility::cout_logger());
+    dpp_bot.on_ready([&](const dpp::ready_t& event) {on_ready(event);});
+    dpp_bot.on_slashcommand([&](const dpp::slashcommand_t& event) {on_slashcommand(event);});
+    dpp_bot.on_message_create([&](const dpp::message_create_t& event) {on_message_create(event);});
+    dpp_bot.on_message_reaction_add([&](const dpp::message_reaction_add_t& event) {on_message_reaction_add(event);});
+    dpp_thread = std::thread{[&](){dpp_bot.start(false);}};
+}
+
+void Bot::tick()
+{
+    std::lock_guard<std::mutex> lock_guard{mutex};
+    std::printf("tick!\n");
+}
+
+void Bot::on_ready(const dpp::ready_t& event)
+{
+    if (dpp::run_once<struct register_bot_commands>())
+    {
+        dpp_bot.global_command_create(dpp::slashcommand("ping", "Ping pong!", dpp_bot.me.id));
+    }
+    mutex.unlock();
+}
+
+void Bot::on_slashcommand(const dpp::slashcommand_t& event)
+{
+    std::printf("got a ping\n");
+    if (event.command.get_command_name() == "ping")
+    {
+        event.reply("Pong!");
+    }
+}
+
+void Bot::on_message_create(const dpp::message_create_t& event)
+{
+    const char* msgcstr = event.msg.content.c_str();
+    const dpp::snowflake user_id = event.msg.author.id;
+    const dpp::snowflake channel_id = event.msg.channel_id;
+    if (!starts_with(msgcstr, "!shrimp"))
+    {
+        return;
+    }
+    msgcstr += strlen("!shrimp");
+    if (msgcstr[0] == '\0')
+    {
+        send_message("invalid_command", channel_id);
+        return;
+    }
+    ++msgcstr;
+    if (!starts_with(msgcstr, "newreminder"))
+    {
+        //TODO: implement adding
+    }
+    if (!starts_with(msgcstr, "deletereminder"))
+    {
+        //TODO: implement deleting
+    }
+}
+
+void Bot::on_message_reaction_add(const dpp::message_reaction_add_t& event)
+{
+    std::printf("got a reaction!\n");
+}
+
+inline void Bot::send_message(const std::string& message, const dpp::snowflake& channel_id)
+{
+    dpp_bot.message_create(dpp::message{channel_id, message});
+}

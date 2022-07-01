@@ -1,0 +1,15 @@
+2
+
+0000000000000001
+0000000000000003
+rose's posture check
+posture check!
+rose passed her posture check!
+rose failed her posture check :(
+
+0000000000000002
+0000000000000003
+macy's posture check
+posture check!!
+macy passed her posture check!
+macy failed her posture check :(
